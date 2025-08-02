@@ -55,11 +55,12 @@ current_state = "WALL_FOLLOW"
 elevator_state = "APPROACHING"
 
 # Constant variables: time variables are for counters
+# TODO: tune each of these variable
 MIN_SPEED = 0.65
 FORWARD_TIME = 2
 ASCENSION_TIME = 6.5
 RAMP_TIME = 1
-LEFT_TIME
+LEFT_TIME = 2
 
 # counters, contour color for elevator
 contour_color = ""
@@ -70,9 +71,15 @@ left_counter = 0
 
 last_angle = 0
 
+# TODO: tune each of these variables
 GREEN = ((30, 50, 50), (80, 255, 255))
 RED = ((165, 50, 50), (20, 255, 255))
 MIN_CONTOUR_AREA = 1000
+MIN_AR_AREA = 1000
+
+# Define thresholds and number of classes to output
+SCORE_THRESH = 0.1
+NUM_CLASSES = 3
 
 # loading the model pretty much
 print('Loading {} with {} labels.'.format(model_path, label_path))
@@ -120,6 +127,22 @@ def update_contour():
 
         # Display the image to the screen
     rc.display.show_color_image(image)
+
+def get_obj_and_type(cv2_im, inference_size, objs):
+    height, width, _ = cv2_im.shape
+    max_score = 0
+    correct_obj = None
+    scale_x, scale_y = width / inference_size[0], height / inference_size[1]
+    for obj in objs:
+        if obj.score > max_score:
+            max_score = obj.score
+            correct_obj = obj
+    bbox = correct_obj.bbox.scale(scale_x, scale_y)
+    x0, y0 = int(bbox.xmin), int(bbox.ymin)
+    x1, y1 = int(bbox.xmax), int(bbox.ymax)
+    center = ((x0+x1)/2, (y0+y1)/2)
+    id = correct_obj.id
+    return center, id, correct_obj
 
 # this function returns area of a given ar tag using the corners and basic area formula
 def find_area(corners):
@@ -203,7 +226,7 @@ def wall_follow():
 #this function has no parameters but contains elevator state machine logic to return speed and angle 
 #to ride the elevator
 def ride_elevator(): #TODO: other team members put wtv inputs you want here - DONE
-    global speed, angle, last_angle, ascension_counter, forward_counter, elevator_state
+    global speed, angle, last_angle, ascension_counter, forward_counter, elevator_state, current_state
 
     # the model stuff
     image = rc.camera.get_color_image()
@@ -232,17 +255,17 @@ def ride_elevator(): #TODO: other team members put wtv inputs you want here - DO
                 elevator_state = "WAITING"
         else:
             speed = MIN_SPEED
-            angle = last_angle
+            angle = 0
     elif elevator_state == "WAITING": # Waiting right before the elevator
         # counter for a little bit of time to get on to the elevator
-        if id == 0:
+        if id == "Stop":
             speed = 0
             angle = 0
-        elif id == 1 and forward_counter < FORWARD_TIME:
-            speed = 0.2
+        elif id == "Go" and forward_counter < FORWARD_TIME:
+            speed = MIN_SPEED
             angle = 0
             forward_counter += rc.get_delta_time()
-        elif id == 1 and forward_counter >= FORWARD_TIME:
+        elif id == "Go" and forward_counter >= FORWARD_TIME:
             speed = 0
             angle = 0
             forward_counter = 0
@@ -269,14 +292,14 @@ def ride_elevator(): #TODO: other team members put wtv inputs you want here - DO
         angle = 0
     elif elevator_state == "EXITING":
         # Exiting state will be wall following for a set time while its on the ramp - AR Tag at the end is very small so possibly risky
-        if ramp_counter < RAMP_TIME
+        if ramp_counter < RAMP_TIME:
             speed, angle = wall_follow()
             ramp_counter += rc.get_delta_time()
         else:
             elevator_state = "DONE"
             ramp_counter = 0
-    else:
-        current_state = "LEFT_WALL_FOLLOW"
+            speed = 0
+            angle = 0
     return speed, angle #these need to be defined in this code - DONE
 
 def hard_left():
@@ -364,15 +387,15 @@ def update():
     marker_id, marker_area = update_ar_tags()
     #LOGIC TO DETERMINE THE STATE
     #if it sees marker 1 and it's close enough to be a certain area then set state to elevator
-    if marker_id == 1 and marker_area >= 9000: #TODO: we can change this value depending on tuning
+    if marker_id == 1 and marker_area >= MIN_AR_AREA: #TODO: we can change this value depending on tuning
         current_state = "ELEVATOR"
     #the "DONE" elevator state is selected after we've wall followed down the ramp for a long enough time, and
     #this means that we are no longer doing the elevator so we can switch to what's immediately after, left wall following
-    elif current_elevator_state == "DONE":
+    elif elevator_state == "DONE":
         current_state = "LEFT_WALL_FOLLOW"
     #we only need to left wall follow to make sure we select the correct path in the area with all the lines after the elevator.
     #this means that once we see ar tag 5 right before the tunnel and the S bend, we can switch back to regular wall following
-    elif marker_id == 5 and marker_area >= 9000: #TODO: again, we will tune this number
+    elif marker_id == 5 and marker_area >= MIN_AR_AREA: #TODO: again, we will tune this number
         current_state = "WALL_FOLLOW"
     #LOGIC FOR WHAT TO DO DEPENDING ON WHAT STATE
     #these are lowkey pretty self explanatory, all these functions have built in controllers and data retrieval functions and
@@ -381,7 +404,7 @@ def update():
         speed, angle = wall_follow()
     elif current_state == "ELEVATOR":
         speed, angle = ride_elevator()
-    elif current_state == "HARD_LEFT:
+    elif current_state == "HARD_LEFT":
         speed, angle = hard_left()
     else:
         speed, angle = wall_follow_left()
