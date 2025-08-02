@@ -1,19 +1,17 @@
-"""
-MIT BWSI Autonomous RACECAR
-MIT License
-racecar-neo-prereq-labs
+# STATES:
+# WALL FOLLOW: normal wall following state
+# ELEVATOR: little state machine of its own, goes through the full elevator dynamic obstacle
+# HARD LEFT: coming out of the elevator, take the hard left to skip big line follow thing
+# LEFT WALL FOLLOW: wall follow with a left bias so we dont go in circles
 
-File Name: template.py << [Modify with your own file name!]
+# ELEVATOR STATES:
+# 1) Approaching: approaching the elevator until we're a certain distance away
+# 2) Check the light: if its green, go, if its red, wait
+# 3) Waiting to see when it turns red
+# 4) Counter 7 seconds until top
+# 5) Check to see if bbox, if so, go back to state 3 cuz we messed up, else go to state 6
+# 6) Exiting: get off
 
-Title: [PLACEHOLDER] << [Modify with your own title]
-
-Author: [PLACEHOLDER] << [Write your name or team name here]
-
-Purpose: [PLACEHOLDER] << [Write the purpose of the script here]
-
-Expected Outcome: [PLACEHOLDER] << [Write what you expect will happen when you run
-the script.]
-"""
 
 ########################################################################################
 # Imports
@@ -22,11 +20,27 @@ the script.]
 import sys
 import math
 import numpy
-# If this file is nested inside a folder in the labs folder, the relative path should
-# be [1, ../../library] instead.
+
+import cv2
+import os
+import time
+
 sys.path.insert(0, '../library')
 import racecar_core
 import racecar_utils as rc_utils
+
+from pycoral.adapters.common import input_size
+from pycoral.adapters.detect import get_objects
+from pycoral.utils.dataset import read_label_file
+from pycoral.utils.edgetpu import make_interpreter
+from pycoral.utils.edgetpu import run_inference
+
+default_path = 'models' # location of model weights and labels
+model_name = 'elevator_edgetpu.tflite'
+label_name = 'elevator_labels.txt'
+
+model_path = default_path + "/" + model_name
+label_path = default_path + "/" + label_name
 ########################################################################################
 # Global variables
 ########################################################################################
@@ -35,13 +49,77 @@ rc = racecar_core.create_racecar()
 
 # Declare any global variables here
 
-STATES = {1: "WALL_FOLLOW", 2: "ELEVATOR", 3: "LEFT_WALL_FOLLOW"}
+STATES = {1: "WALL_FOLLOW", 2: "ELEVATOR", 3: "LEFT_WALL_FOLLOW", 4: "HARD_LEFT"}
 ELEVATOR_STATES = {1: "APPROACHING", 2: "WAITING", 3: "AT_BOTTOM", 4: "ASCENDING", 5: "EXITING", 6: "DONE"}
 current_state = "WALL_FOLLOW"
-current_elevator_state = "APPROACHING"
+elevator_state = "APPROACHING"
+
+# Constant variables: time variables are for counters
+MIN_SPEED = 0.65
+FORWARD_TIME = 2
+ASCENSION_TIME = 6.5
+RAMP_TIME = 1
+LEFT_TIME
+
+# counters, contour color for elevator
+contour_color = ""
+ascension_counter = 0
+forward_counter = 0
+ramp_counter = 0
+left_counter = 0
+
+last_angle = 0
+
+GREEN = ((30, 50, 50), (80, 255, 255))
+RED = ((165, 50, 50), (20, 255, 255))
+MIN_CONTOUR_AREA = 1000
+
+# loading the model pretty much
+print('Loading {} with {} labels.'.format(model_path, label_path))
+interpreter = make_interpreter(model_path)
+interpreter.allocate_tensors()
+labels = read_label_file(label_path)
+inference_size = input_size(interpreter)
+
 ########################################################################################
 # Functions
 ########################################################################################
+
+# update contour used only for elevator once we are on to detect the elevator state
+def update_contour():
+    global contour_color
+
+    contour = None
+
+    image = rc.camera.get_color_image()
+
+    if image is None:
+        contour_point = None
+        contour_area = 0
+    else:
+        # TODO Part 2: Search for line colors, and update the global variables
+        # contour_point and contour_area with the largest contour found
+        green_contours = rc_utils.find_contours(image, GREEN[0], GREEN[1])
+        red_contours = rc_utils.find_contours(image, RED[0], RED[1])
+
+        green = rc_utils.get_largest_contour(green_contours, MIN_CONTOUR_AREA)
+        red = rc_utils.get_largest_contour(red_contours, MIN_CONTOUR_AREA)
+
+        if red is not None:
+            contour = red
+            contour_color = "RED"
+        elif green is not None:
+            contour = green
+            contour_color = "GREEN"
+
+        if contour is not None:
+            contour_point = rc_utils.get_contour_center(contour)
+            contour_area = rc_utils.get_contour_area(contour)
+            rc_utils.draw_contour(image, contour)
+            rc_utils.draw_circle(image, contour_point)
+
+        # Display the image to the screen
+    rc.display.show_color_image(image)
 
 # this function returns area of a given ar tag using the corners and basic area formula
 def find_area(corners):
@@ -98,6 +176,7 @@ def wall_follow():
             chosen_heading = heading
             best_opening = candidate_clearance
 
+    # if no good openings, uses triangles to find the biggest opening and use taht as the controller
     special_light = 60
     sample_window = 2
     kp = 0.003
@@ -115,7 +194,7 @@ def wall_follow():
 
     merged_angle = rc_utils.clamp((chosen_heading / 30.0 + wall_adjust) / 2.0, -1.0, 1.0)
 
-    # speed = 1.0 if best_opening > 220 else 0.6
+    # speed controller based on the absolute value of the angle to slooowwww down around those turns
     kp_s = 1
     speed = rc_utils.clamp(kp_s * (1 - abs(merged_angle)), 0.6, 1)
     print(f"speed: {speed}")
@@ -123,8 +202,95 @@ def wall_follow():
 
 #this function has no parameters but contains elevator state machine logic to return speed and angle 
 #to ride the elevator
-def ride_elevator(): #TODO: other team members put wtv inputs you want here
-    return speed, angle #these need to be defined in this code
+def ride_elevator(): #TODO: other team members put wtv inputs you want here - DONE
+    global speed, angle, last_angle, ascension_counter, forward_counter, elevator_state
+
+    # the model stuff
+    image = rc.camera.get_color_image()
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    rgb_image = cv2.resize(rgb_image, inference_size)
+    run_inference(interpreter, rgb_image.tobytes())
+    objs = get_objects(interpreter, SCORE_THRESH)[:NUM_CLASSES]
+    center, id, obj = get_obj_and_type(image, inference_size, objs)
+
+    # APROACHING STATE: run a kp speed and kp angle controller 
+    if elevator_state == "APPROACHING":
+        if (len(objs) != 0):
+            pv_a = center[0]
+            setpoint_a = rc.camera.get_width()
+            error_a = setpoint_a - pv_a
+            kp_a = 0.005
+            angle = rc_utils.clamp(kp_a * error_a, -1, 1)
+
+            pv_s = obj.bbox.area()
+            setpoint_s = 4000
+            error_s = setpoint_s - pv_s
+            kp_s = 0.003
+            speed = rc_utils.clamp(kp_s * error_s, 0, 1)
+            last_angle = angle
+            if pv_s == setpoint_s: # once we hit that target, go to the next state
+                elevator_state = "WAITING"
+        else:
+            speed = MIN_SPEED
+            angle = last_angle
+    elif elevator_state == "WAITING": # Waiting right before the elevator
+        # counter for a little bit of time to get on to the elevator
+        if id == 0:
+            speed = 0
+            angle = 0
+        elif id == 1 and forward_counter < FORWARD_TIME:
+            speed = 0.2
+            angle = 0
+            forward_counter += rc.get_delta_time()
+        elif id == 1 and forward_counter >= FORWARD_TIME:
+            speed = 0
+            angle = 0
+            forward_counter = 0
+            elevator_state = "AT_BOTTOM"
+        else:
+            speed = 0
+            angle = 0
+    elif elevator_state == "AT_BOTTOM": # Waiting for the sign to turn red to start the counter as it goes up
+        update_contour()
+        # initiate the counter once it turns red
+        if contour_color == "RED":
+            ascension_counter = 0
+            elevator_state = "ASCENDING"
+        speed = 0
+        angle = 0
+    elif elevator_state == "ASCENDING": # Going up on the elevator, counter based system for 7 seconds
+        # 7 SECONDS IS BASED ON once it turns red, theres a 3 second buffer, 1 second to ascend, and it stays up for 10 seconds so we are extra safe here
+        if ascension_counter > ASCENSION_TIME:
+            ascension_counter = 0
+            elevator_state = "EXITING"
+        else:
+            ascension_counter += rc.get_delta_time()
+        speed = 0
+        angle = 0
+    elif elevator_state == "EXITING":
+        # Exiting state will be wall following for a set time while its on the ramp - AR Tag at the end is very small so possibly risky
+        if ramp_counter < RAMP_TIME
+            speed, angle = wall_follow()
+            ramp_counter += rc.get_delta_time()
+        else:
+            elevator_state = "DONE"
+            ramp_counter = 0
+    else:
+        current_state = "LEFT_WALL_FOLLOW"
+    return speed, angle #these need to be defined in this code - DONE
+
+def hard_left():
+    # simple counter to turn left for a good bit until we can clear that area right off the elevator
+    global current_state
+    if left_counter < LEFT_TIME:
+        counter += rc.get_delta_time()
+    else:
+        counter = 0
+        current_state = "LEFT_WALL_FOLLOW"
+    angle = -1
+    speed = MIN_SPEED
+    return speed, angle
+    
 
 #this funciton uses the same base code as the wall_follow() function but it has slightly modified view angle so that 
 #it is biased towards the left side. this allows us to get off of the elevator and ensure that we take the correct path to the left
@@ -215,6 +381,8 @@ def update():
         speed, angle = wall_follow()
     elif current_state == "ELEVATOR":
         speed, angle = ride_elevator()
+    elif current_state == "HARD_LEFT:
+        speed, angle = hard_left()
     else:
         speed, angle = wall_follow_left()
     #sets speed and angle based on what was returned
