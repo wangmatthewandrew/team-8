@@ -16,3 +16,9 @@
  - Elevator code
  - Full elevator state machine
  - Counters and methods for each state
+
+### elevator_edgetpu.tflite
+ - Elevator model
+
+### elevator_labels
+ - Elevator labels
