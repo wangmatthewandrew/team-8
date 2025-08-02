@@ -1,7 +1,7 @@
 # team-8
 
 ## Files:
-### grand_prix.py
+### final_grand_prix.py
  - Full code
  - Full state machine
  - All states / algorithms as methods
