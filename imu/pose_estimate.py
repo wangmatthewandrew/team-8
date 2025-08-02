@@ -15,7 +15,7 @@ be used for autonomous navigation. It is recommended to review the equations of
 motion and axes directions for the RACECAR Neo platform before starting. Template
 code has been provided for the implementation of a Complementary Filter.
 
-Expected Outcome: Subscribe to the /imu and /mag topics, and publish to the /pose_estimate
+Expected Outcome: Subscribe to the /imu and /mag topics, and publish to the /pose
 topic with accurate pose estimations.
 """
 
@@ -29,12 +29,12 @@ import time
 
 class PoseEstiNode(Node):
     def __init__(self):
-        super().__init__('pose_estimate_node')
+        super().__init__('pose_node')
 
         # Set up subscriber and publisher nodes
         self.subscription_imu = self.create_subscription(Imu, '/imu', self.imu_callback, 10)
         self.subscription_mag = self.create_subscription(MagneticField, '/mag', self.mag_callback, 10)
-        self.publisher_pose_estimate = self.create_publisher(Vector3, '/pose_estimate', 10) # output as [x, y, theta] pose
+        self.publisher_pose_estimate = self.create_publisher(Vector3, '/pose', 10) # output as [x, y, theta] pose
 
         self.prev_time = self.get_clock().now() # initialize time checkpoint
 
@@ -190,11 +190,11 @@ class PoseEstiNode(Node):
         print("\n")
         
         # Publish to pose estimate topic
-        pose_estimate = Vector3()
-        pose_estimate.x = self.x_pos
-        pose_estimate.y = self.y_pos
-        pose_estimate.z = self.angle * 180 / math.pi
-        self.publisher_pose_estimate.publish(pose_estimate)
+        pose = Vector3()
+        pose.x = self.x_pos
+        pose.y = self.y_pos
+        pose.z = self.angle * 180 / math.pi
+        self.publisher_pose_estimate.publish(pose)
     
 def main():
     rclpy.init(args=None)
