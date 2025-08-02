@@ -50,7 +50,7 @@ label_path = default_path + "/" + label_name
 
 # Define thresholds and number of classes to output
 SCORE_THRESH = 0.1
-NUM_CLASSES = 3
+NUM_CLASSES = 2
 ########################################################################################
 # Global variables
 ########################################################################################
