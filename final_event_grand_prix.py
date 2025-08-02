@@ -326,13 +326,16 @@ def find_area(corners):
 
 #this function returns what ar tags the camera sees
 def update_ar_tags():
+    id = None
+    area = 0
     image = rc.camera.get_color_image()
     #get list of markers
     markers = rc_utils.get_ar_markers(image)
     #get id of first marker in list
-    id = markers[0].get_id()
-    #get area of said marker
-    area = find_area(markers[0].get_corners())
+    if len(markers)>0:
+        id = markers[0].get_id()
+        #get area of said marker
+        area = find_area(markers[0].get_corners())
     return id, area
 
 #this function returns given angle but in positive form (but same location)
