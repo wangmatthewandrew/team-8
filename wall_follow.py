@@ -33,7 +33,7 @@ def update():
 
     chosen_heading = 0
     best_opening = 0
-        #this part iterates on each potential heading from -75 to 75, for the left wall follow version we change this window to
+    # this part iterates on each potential heading from -75 to 75, for the left wall follow version we change this window to
     #make it biased towards the left. we basically prevent it from seeing openings to the right
     for heading in range(-75, 20, step):
         start = heading - fan_width // 2
@@ -48,7 +48,7 @@ def update():
 
         if not samples or min(samples) < min_gap:
             continue
-        #try to find best opening
+        # try to find best opening
         candidate_clearance = min(samples)
         if candidate_clearance > best_opening:
             chosen_heading = heading
@@ -57,7 +57,8 @@ def update():
     special_light = 60
     sample_window = 2
     kp = 0.003
-    
+
+    # lidar angles
     r_angle, r_dist = rc_utils.get_lidar_closest_point(scan_data, (0, 180))
     l_angle, l_dist = rc_utils.get_lidar_closest_point(scan_data, (180, 360))
     r_shift = rc_utils.get_lidar_average_distance(scan_data, special_light, sample_window)
@@ -75,7 +76,7 @@ def update():
     #     print("correcting")
     # speed = 1.0 if best_opening > 220 else 0.6
 
-    #proportional speed controller
+    # proportional speed controller
     kp_s = 1
     speed = rc_utils.clamp(kp_s * (1 - abs(merged_angle)), 0.6, 1)
     print(f"speed: {speed}")
