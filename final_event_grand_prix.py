@@ -91,6 +91,182 @@ inference_size = input_size(interpreter)
 ########################################################################################
 # Functions
 ########################################################################################
+# THE DICTIONARY
+# the special characters
+blank = np.array([
+    [0],
+    [0],
+    [0],
+    [0],
+    [0],
+    [0],
+    [0],
+    [0],
+    [0],
+])
+plus = np.array([
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 1, 0],
+    [1, 1, 1],
+    [0, 1, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+])
+minus = np.array([
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [1, 1, 1],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+])
+dot = np.array([
+    [0],
+    [0],
+    [0],
+    [0],
+    [0],
+    [0],
+    [0],
+    [1],
+])
+
+# numbers
+one = np.array([
+    [0, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 1, 1, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 1, 1, 1, 0],
+])
+two = np.array([
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 1],
+    [0, 0, 0, 0, 1],
+    [0, 0, 0, 1, 0],
+    [0, 0, 1, 0, 0],
+    [0, 1, 0, 0, 0],
+    [1, 1, 1, 1, 1],
+])
+three = np.array([
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 1],
+    [0, 0, 0, 0, 1],
+    [0, 0, 1, 1, 0],
+    [0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 1],
+    [0, 1, 1, 1, 0],
+])
+four = np.array([
+    [0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 0],
+    [0, 0, 1, 1, 0],
+    [0, 1, 0, 1, 0],
+    [1, 0, 0, 1, 0],
+    [1, 1, 1, 1, 1],
+    [0, 0, 0, 1, 0],
+    [0, 0, 0, 1, 0],
+])
+five = np.array([
+    [0, 0, 0, 0, 0],
+    [1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0],
+    [1, 1, 1, 1, 0],
+    [0, 0, 0, 0, 1],
+    [0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 0],
+])
+six = np.array([
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0],
+    [1, 1, 1, 1, 0],
+    [1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 1],
+    [0, 1, 1, 1, 0],
+])
+seven = np.array([
+    [0, 0, 0, 0, 0],
+    [1, 1, 1, 1, 1],
+    [0, 0, 0, 0, 1],
+    [0, 0, 0, 1, 0],
+    [0, 0, 1, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 0, 1, 0, 0],
+])
+eight = np.array([
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 1],
+    [0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 1],
+    [0, 1, 1, 1, 0],
+])
+nine = np.array([
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 1],
+    [0, 1, 1, 1, 1],
+    [0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 1],
+    [0, 1, 1, 1, 0],
+])
+zero = np.array([
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 1],
+    [1, 1, 0, 0, 1],
+    [1, 0, 1, 0, 1],
+    [1, 0, 0, 1, 1],
+    [1, 0, 0, 0, 1],
+    [0, 1, 1, 1, 0],
+])
+
+nums = {
+    "1": one,
+    "2": two,
+    "3": three,
+    "4": four,
+    "5": five,
+    "6": six,
+    "7": seven,
+    "8": eight,
+    "9": nine,
+    "0": zero,
+}
+
+chars = {
+    "+": plus,
+    "-": minus,
+    ".": dot,
+}
+
+def insert_blank(dot_matrix):
+    for i in range(len(dot_matrix)):
+        dot_matrix[i] = np.concatenate([dot_matrix[i], blank[i]])
+
+def insert_chars(dot_matrix, char):
+    for i in range(len(dot_matrix)):
+        dot_matrix[i] = np.concatenate([dot_matrix[i], chars[f"{char}"][i]])
+
+def insert_nums(dot_matrix, num):
+    for i in range(len(dot_matrix)):
+        dot_matrix[i] = np.concatenate([dot_matrix[i], nums[f"{num}"][i]])
 
 # update contour used only for elevator once we are on to detect the elevator state
 def update_contour():
@@ -410,6 +586,38 @@ def update():
         speed, angle = wall_follow_left()
     #sets speed and angle based on what was returned
     rc.drive.set_speed_angle(speed, angle)
+    # dot matrix display
+    display_matrix = [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    ]
+
+    sign = "-" if angle < 0 else "+"
+    angle_str = "{:.2f}".format(angle) if sign == "+" else "{:.2f}".format(angle)[1:]
+    pos_ones = angle_str[0]
+    pos_tenths = angle_str[2]
+    pos_hunds = angle_str[3]
+    print(f"{angle_str}")
+
+    insert_blank(display_matrix)
+    insert_chars(display_matrix, sign)
+    insert_blank(display_matrix)
+    insert_nums(display_matrix, pos_ones)
+    insert_blank(display_matrix)
+    insert_chars(display_matrix, ".")
+    insert_blank(display_matrix)
+    insert_nums(display_matrix, pos_tenths)
+    insert_blank(display_matrix)
+    insert_nums(display_matrix, pos_hunds)
+    
+    rc.display.set_matrix(display_matrix)
+    
 # [FUNCTION] update_slow() is similar to update() but is called once per second by
 # default. It is especially useful for printing debug messages, since printing a 
 # message every frame in update is computationally expensive and creates clutter
