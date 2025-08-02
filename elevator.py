@@ -42,8 +42,8 @@ forward_counter = 0
 # Define paths to model and label directories
 # TODO: change this stuff to match our file structure
 default_path = 'models' # location of model weights and labels
-model_name = 'efficientdet0_edgetpu.tflite'
-label_name = 'labels.txt'
+model_name = 'elevator_edgetpu.tflite'
+label_name = 'elevator_labels.txt'
 
 model_path = default_path + "/" + model_name
 label_path = default_path + "/" + label_name
